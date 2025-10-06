@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building a Simple Blog System with Python | 84-CS Blog</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .prose { max-width: 65ch; }
+        .prose h1 { font-family: 'JetBrains Mono', monospace; font-size: 2.25rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; }
+        .prose h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.875rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; }
+        .prose h3 { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        .prose p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .prose pre { background-color: #1f2937; color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1rem; }
+        .prose code { background-color: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .prose pre code { background-color: transparent; padding: 0; }
+        .prose ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .prose ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .prose li { margin-bottom: 0.5rem; }
+        .prose a { color: #3b82f6; text-decoration: underline; }
+        .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; color: #6b7280; margin-bottom: 1rem; }
+    </style>
+</head>
+<body class="bg-white">
+    <header class="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100">
+        <div class="container mx-auto px-4 py-6 flex justify-between items-center">
+            <a href="/" class="text-xl font-mono font-bold">84-CS</a>
+            <nav>
+                <ul class="flex space-x-8">
+                    <li><a href="/" class="text-gray-600 hover:text-gray-900">Home</a></li>
+                    <li><a href="/blog" class="text-blue-600 font-semibold">Blog</a></li>
+                    <li><a href="/#contact" class="text-gray-600 hover:text-gray-900">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="h-20"></div>
+
+    <article class="container mx-auto px-4 py-12">
+        <div class="max-w-4xl mx-auto">
+            <div class="mb-8">
+                <a href="/blog" class="text-blue-600 hover:underline text-sm">← Back to Blog</a>
+            </div>
+
+            <h1 class="font-mono text-4xl font-bold mb-4">Building a Simple Blog System with Python</h1>
+            <div class="text-gray-500 mb-6">2025-01-15</div>
+
+            <div class="flex gap-2 mb-8">
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">python</span>
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">static-site</span>
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">web-development</span>
+                
+            </div>
+
+            <div class="prose">
+                <h1>Building a Simple Blog System with Python</h1>
+<p>This is an example blog post demonstrating how to create a static blog using Python, Markdown, and Jinja2 templates.</p>
+<h2>Why Static Blogs?</h2>
+<p>Static blogs offer several advantages:</p>
+<ul>
+<li><strong>Fast loading times</strong> - No database queries, just HTML</li>
+<li><strong>Security</strong> - No server-side code execution</li>
+<li><strong>Simple hosting</strong> - Works on GitHub Pages, Netlify, or any static host</li>
+<li><strong>Version control</strong> - Blog posts are just files in git</li>
+</ul>
+<h2>How It Works</h2>
+<p>Our build system follows a simple workflow:</p>
+<ol>
+<li>Write blog posts in Markdown with YAML front-matter</li>
+<li>Run the build script: <code>python build_blog.py</code></li>
+<li>The script generates static HTML files</li>
+<li>Commit and push to GitHub Pages</li>
+</ol>
+<h3>Front-Matter Example</h3>
+<p>Each blog post starts with metadata in YAML format:</p>
+<pre class="codehilite"><code class="language-yaml">---
+title: &quot;Your Post Title&quot;
+date: 2025-01-15
+tags: [tag1, tag2, tag3]
+published: true
+---
+</code></pre>
+
+<h2>Writing Content</h2>
+<p>You can use all standard Markdown features:</p>
+<ul>
+<li><strong>Bold text</strong></li>
+<li><em>Italic text</em></li>
+<li><code>Inline code</code></li>
+<li><a href="https://84-cs.com">Links</a></li>
+</ul>
+<h3>Code Blocks</h3>
+<pre class="codehilite"><code class="language-python">def build_blog():
+    print(&quot;Building blog...&quot;)
+    # Your code here
+</code></pre>
+
+<h3>Lists</h3>
+<ol>
+<li>First item</li>
+<li>Second item</li>
+<li>Third item</li>
+</ol>
+<h2>Publishing Control</h2>
+<p>The <code>published: true</code> flag controls whether a post appears on your blog. Set it to <code>false</code> for drafts:</p>
+<pre class="codehilite"><code class="language-yaml">published: false  # This post won't be built
+</code></pre>
+
+<h2>Conclusion</h2>
+<p>This simple Python-based blog system gives you full control over your content while keeping the deployment process straightforward. Perfect for developer blogs and technical documentation.</p>
+<p>Happy blogging! 🚀</p>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <a href="/blog" class="text-blue-600 hover:underline">← Back to Blog</a>
+            </div>
+        </div>
+    </article>
+
+    <footer class="py-8 border-t mt-16">
+        <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
+            <div class="text-sm text-gray-600 mb-4 md:mb-0">
+                <span class="font-mono font-bold">84-CS</span> | Software Development & Infrastructure
+            </div>
+            <div class="text-sm text-gray-600">
+                &copy; 2025 84-CS. All rights reserved.
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

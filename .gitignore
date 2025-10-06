@@ -1,1 +1,6 @@
-CLAUDE.md
+# Python virtualenv
+.venv/
+__pycache__/
+*.pyc
+
+# Build artifacts (commit the blog/ directory - it's needed for GitHub Pages)
