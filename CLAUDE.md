@@ -4,94 +4,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a static website for 84-CS, a software development and infrastructure company based in Ljubljana, Slovenia. The website is a single-page application showcasing services, products, company information, and contact details.
+Static website for 84-CS (84-cs.com), a software development and infrastructure company in Ljubljana, Slovenia. The site consists of:
+- Main landing page (pure HTML/CSS/JS with Tailwind CDN)
+- Static blog system (Python-based Markdown-to-HTML generator)
+- Hydrate app privacy policy page
 
-## Architecture
+## Development Commands
 
-**Technology Stack:**
-- Pure HTML with embedded CSS and JavaScript
-- Tailwind CSS via CDN (https://cdn.tailwindcss.com)
-- Google Fonts: Inter (body) and JetBrains Mono (headings/code elements)
+### Blog System
 
-**Site Structure:**
-- `index.html` - Main landing page with all sections (hero, services, products, about, contact)
-- `hydrate/policy.html` - Privacy policy page for the Hydrate mobile app
-- `assets/hydrate/icon-hydrate.png` - Hydrate app icon
-- `CNAME` - Domain configuration for GitHub Pages (84-cs.com)
-
-**Page Sections (index.html):**
-1. Fixed header with navigation
-2. Hero section with scroll indicator
-3. Services section (Software Development, Infrastructure, System Architecture, AI Solutions)
-4. Products section (divided into Proprietary Products and Side Projects)
-5. About section
-6. Contact section
-7. Footer
-
-## Key Design Patterns
-
-**Smooth Scroll Navigation:**
-- Anchor links use hash navigation (#services, #products, etc.)
-- JavaScript handles smooth scrolling with header offset compensation
-- Fixed header height is accounted for in scroll position calculations
-
-**Styling Conventions:**
-- Blue accent color: #3b82f6
-- Monospace font (JetBrains Mono) for headings and brand elements
-- Custom `.blue-underline` class for section titles (creates centered blue underline)
-- Custom `.scroll-indicator` for hero section scroll hint
-
-## Development Notes
-
-**Python Environment:**
-ALWAYS activate the virtual environment before working on the blog build process:
+**IMPORTANT**: Always activate the virtual environment before working with the blog:
 ```bash
 source .venv/bin/activate
 ```
 
-The Python dependencies (in requirements.txt) are ONLY needed for the local build process. The generated HTML files are static and require no dependencies on GitHub Pages.
+**Build blog posts**:
+```bash
+python build_blog.py
+```
 
-**Blog Build Process:**
-1. Activate virtualenv: `source .venv/bin/activate`
-2. Write blog posts as Markdown in `_posts/` directory
-3. Run build script: `python build_blog.py`
-4. Commit generated HTML files in `blog/` directory
-5. Push to GitHub Pages
+This converts Markdown files in `_posts/` to static HTML in `blog/`. Only posts with `published: true` in their front-matter are built.
 
-**Main Site (No Build Process):**
-The main landing page (index.html) is a static site with no build step. All dependencies are loaded via CDN.
+**Install dependencies** (if needed):
+```bash
+pip install -r requirements.txt
+```
 
-**Deployment:**
-The site is configured for GitHub Pages deployment (as indicated by CNAME file). Any changes to HTML files are immediately reflected after git push to the main branch.
+## Architecture
 
-**Adding New Content:**
-- New services: Add card to services grid in index.html:137-208
-- New proprietary products: Add to grid in index.html:226-271
-- New side projects: Add to grid in index.html:281-353
-- Update contact info: Edit section at index.html:385-439
+### Two Distinct Systems
 
-## Company Information
+1. **Main Site** (`index.html`, `hydrate/policy.html`)
+   - Pure HTML with inline CSS/JavaScript
+   - No build process required
+   - All dependencies via CDN (Tailwind, Google Fonts)
+   - Edit directly and commit
 
-**84-CS Services:**
-- Software Development (custom solutions)
-- Infrastructure (scalable setup and management)
-- System Architecture (robust design)
-- AI Solutions (Agentic AI, n8n automation, RAG implementations)
+2. **Blog System** (Python generator)
+   - **Source**: Markdown files in `_posts/` with YAML front-matter
+   - **Output**: Static HTML in `blog/` and `blog/posts/`
+   - **Build tool**: `build_blog.py` (uses Jinja2, python-frontmatter, markdown)
+   - **Templates**: Embedded in `build_blog.py` (BLOG_INDEX_TEMPLATE, POST_TEMPLATE)
+   - **Dependencies**: Only needed for local build; GitHub Pages serves static HTML
 
-**Technology Focus:**
-- Elixir, Phoenix, LiveView
-- Golang
-- Nerves (IoT)
-- Kafka, NATS (messaging infrastructure)
+### Blog Post Structure
 
-**Key Products:**
-- IoT Connected Car Platform
-- OTA Cloud Service
-- Cyber Security Logs Dashboard
-- Manufacturing Inventory System
-- Electricity Trading Infrastructure
+Posts in `_posts/` use YAML front-matter:
+```yaml
+---
+title: "Post Title"
+date: 2025-01-15
+tags: [tag1, tag2]
+published: true
+---
+```
 
-**Side Projects:**
-- Tarock Counter (tarok.playfuldata.org)
-- 123Math.online
-- Hydrate mobile app (iOS, privacy-first hydration tracker)
+- Filename becomes the slug (e.g., `2025-01-15-post-title.md` → `/blog/posts/2025-01-15-post-title.html`)
+- `published: false` posts are skipped during build
+- Excerpt auto-generated from first paragraph
+
+### Design System
+
+- **Fonts**: Inter (body), JetBrains Mono (headings/code)
+- **Accent color**: `#3b82f6` (blue)
+- **Custom classes**: `.blue-underline` (section titles), `.scroll-indicator` (hero section)
+- **Navigation**: Hash-based smooth scrolling with header offset compensation
+
+## Deployment
+
+GitHub Pages deployment via `main` branch. Domain configured in `CNAME` file.
+
+**Workflow**:
+1. For main site: Edit HTML directly, commit, push
+2. For blog: Edit Markdown in `_posts/`, run `python build_blog.py`, commit generated HTML, push
+
+## Key File Locations
+
+- Main landing page sections: index.html:137-439 (services, products, about, contact)
+- Blog templates: build_blog.py:22-193
+- Blog posts source: `_posts/*.md`
+- Generated blog pages: `blog/index.html`, `blog/posts/*.html`

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixing Rust Into a Python/Flask App (GAE/Lambda) – My Notes | 84-CS Blog</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .prose { max-width: 65ch; }
+        .prose h1 { font-family: 'JetBrains Mono', monospace; font-size: 2.25rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; }
+        .prose h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.875rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; }
+        .prose h3 { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        .prose p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .prose pre { background-color: #1f2937; color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1rem; }
+        .prose code { background-color: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .prose pre code { background-color: transparent; padding: 0; }
+        .prose ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .prose ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .prose li { margin-bottom: 0.5rem; }
+        .prose a { color: #3b82f6; text-decoration: underline; }
+        .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; color: #6b7280; margin-bottom: 1rem; }
+    </style>
+</head>
+<body class="bg-white">
+    <header class="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100">
+        <div class="container mx-auto px-4 py-6 flex justify-between items-center">
+            <a href="/" class="text-xl font-mono font-bold">84-CS</a>
+            <nav>
+                <ul class="flex space-x-8">
+                    <li><a href="/" class="text-gray-600 hover:text-gray-900">Home</a></li>
+                    <li><a href="/blog" class="text-blue-600 font-semibold">Blog</a></li>
+                    <li><a href="/#contact" class="text-gray-600 hover:text-gray-900">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="h-20"></div>
+
+    <article class="container mx-auto px-4 py-12">
+        <div class="max-w-4xl mx-auto">
+            <div class="mb-8">
+                <a href="/blog" class="text-blue-600 hover:underline text-sm">← Back to Blog</a>
+            </div>
+
+            <h1 class="font-mono text-4xl font-bold mb-4">Mixing Rust Into a Python/Flask App (GAE/Lambda) – My Notes</h1>
+            <div class="text-gray-500 mb-6">2025-11-27</div>
+
+            <div class="flex gap-2 mb-8">
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">rust</span>
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">python</span>
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">flask</span>
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">pyo3</span>
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">tokio</span>
+                
+            </div>
+
+            <div class="prose">
+                <h1>Mixing Rust Into a Python/Flask App (GAE/Lambda) – My Notes</h1>
+<p>Lately I've been running a Python app in Google App Engine (and occasionally AWS Lambda), and I ran into a part of the system that I'd really prefer to solve in <strong>Rust</strong>. The logic needs to be fast, async, and probably better handled in a compiled language. But my main service is <strong>Flask</strong>, so the big question I asked myself was:</p>
+<blockquote>
+<p>Can I write my logic in Rust (with Tokio!) and still use it as a Python module?<br />
+Or am I stuck with Python being single‑threaded and all that?</p>
+</blockquote>
+<p>Turns out — yes — it works. And it's actually not that terrible once you get the workflow right.</p>
+<p>Let me write down how I wrapped my head around it.</p>
+<hr />
+<h2>Python, Rust, Tokio and the “single‑threaded question”</h2>
+<p>Python (CPython, specifically) has the GIL — meaning only one thread can really execute Python bytecode at a time. That scared me at first because Tokio is multi‑threaded and async. But here's the trick:</p>
+<p>Rust code <strong>does not run under the GIL</strong> unless you make Python calls from it.</p>
+<p>So if Rust is doing async IO or CPU work, it can run freely across threads. You just have to handle the boundaries properly. <code>pyo3</code> makes this mostly painless.</p>
+<hr />
+<h2>What does Rust actually produce? Binary? <code>.so</code>? <code>.dylib</code>?</h2>
+<p>There are two ways I could approach this:</p>
+<h3>1. Compile Rust as a <strong>separate binary</strong> and call it from Python</h3>
+<pre class="codehilite"><code class="language-python">subprocess.run([&quot;./my_rust_binary&quot;])
+</code></pre>
+
+<p>This works, but means managing a second process, passing data via stdin/stdout/JSON, etc. Possible — but not elegant.</p>
+<h3>2. Build Rust as a <strong>Python extension module</strong></h3>
+<p>This is what I actually want.</p>
+<p>The output becomes a shared library (<code>.so/.pyd/.dylib</code> depending on OS), and when built as a Python module it ends up as something like:</p>
+<ul>
+<li>Linux: <code>my_rust_module.cpython-310-x86_64-linux-gnu.so</code></li>
+<li>macOS: <code>my_rust_module.cpython-311-darwin.so</code></li>
+<li>Windows: <code>my_rust_module.cp311-win_amd64.pyd</code></li>
+</ul>
+<p>And then I can just do:</p>
+<pre class="codehilite"><code class="language-python">import my_rust_module
+</code></pre>
+
+<p>Perfect.</p>
+<p>One important detail that confused me for a bit:</p>
+<ul>
+<li>In <code>Cargo.toml</code> we write <code>crate-type = ["cdylib"]</code>.  </li>
+<li><code>cdylib</code> is <strong>not</strong> a file extension, it’s a crate type.  </li>
+<li>On macOS the underlying Rust output is a <code>.dylib</code>, but for Python extension modules the final file still ends with <code>.so</code> (even on macOS), because that’s what Python expects.</li>
+</ul>
+<hr />
+<h2>The stack I ended up using</h2>
+<p>Tools I’m using:</p>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>Tool</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python bindings for Rust</td>
+<td><code>pyo3</code></td>
+</tr>
+<tr>
+<td>Build wheels / dev installs</td>
+<td><code>maturin</code></td>
+</tr>
+<tr>
+<td>Async runtime inside Rust</td>
+<td><code>tokio</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Minimal Rust setup (library crate, not binary)</h2>
+<p>I created a library crate:</p>
+<pre class="codehilite"><code class="language-bash">cargo new my_rust_module --lib
+cd my_rust_module
+</code></pre>
+
+<p>That gives me a <code>src/lib.rs</code> instead of <code>main.rs</code>, which is exactly what I want for a Python extension.</p>
+<h3><code>Cargo.toml</code></h3>
+<p>Here’s my <code>Cargo.toml</code>:</p>
+<pre class="codehilite"><code class="language-toml">[package]
+name = &quot;my_rust_module&quot;
+version = &quot;0.1.0&quot;
+edition = &quot;2021&quot;
+
+[lib]
+name = &quot;my_rust_module&quot;
+crate-type = [&quot;cdylib&quot;]
+
+[dependencies]
+pyo3 = { version = &quot;0.27.1&quot;, features = [&quot;extension-module&quot;] }
+tokio = { version = &quot;1&quot;, features = [&quot;rt-multi-thread&quot;, &quot;macros&quot;] }
+</code></pre>
+
+<p>The key line is:</p>
+<pre class="codehilite"><code class="language-toml">crate-type = [&quot;cdylib&quot;]
+</code></pre>
+
+<p>This tells Rust to build a C-compatible dynamic library that languages like Python can load.</p>
+<h3><code>src/lib.rs</code></h3>
+<p>And this is the minimal <code>lib.rs</code> I used with pyo3 0.27 and Tokio:</p>
+<pre class="codehilite"><code class="language-rust">use pyo3::prelude::*;
+use pyo3::exceptions::PyRuntimeError;
+use pyo3::types::PyModule;
+use tokio::runtime::Runtime;
+
+// Tiny async function run on Tokio
+async fn async_double(x: i32) -&gt; i32 {
+    x * 2
+}
+
+#[pyfunction]
+fn double_in_rust(x: i32) -&gt; PyResult&lt;i32&gt; {
+    // Create a Tokio runtime and run the async job
+    let rt = Runtime::new()
+        .map_err(|e| PyRuntimeError::new_err(format!(&quot;Failed to create Tokio runtime: {e}&quot;)))?;
+
+    let result = rt.block_on(async_double(x));
+    Ok(result)
+}
+
+// New-style signature for PyO3 0.27
+#[pymodule]
+fn my_rust_module(m: &amp;Bound&lt;'_, PyModule&gt;) -&gt; PyResult&lt;()&gt; {
+    m.add_function(wrap_pyfunction!(double_in_rust, m)?)?;
+    Ok(())
+}
+</code></pre>
+
+<p>No Flask, no web anything yet — this is just a plain Python module backed by Rust and Tokio.</p>
+<hr />
+<h2>Setting up Python and the virtual environment (with <code>uv</code>)</h2>
+<p>For this experiment I used <code>uv</code> to manage my Python and virtualenv for the project.</p>
+<p>I initialized the project and pinned Python like this:</p>
+<pre class="codehilite"><code class="language-bash">➜  RUST-PYTHON-interoperability uv init           
+Initialized project `rust-python-interoperability`
+
+➜  RUST-PYTHON-interoperability git:(master) ✗ uv python pin 3.14 
+Updated `.python-version` from `3.13` -&gt; `3.14`
+
+➜  RUST-PYTHON-interoperability git:(master) ✗ cat .python-version 
+3.14
+
+➜  RUST-PYTHON-interoperability git:(master) ✗ uv venv --python 3.14
+Using CPython 3.14.0 interpreter at: /opt/homebrew/opt/python@3.14/bin/python3.14
+Creating virtual environment at: .venv
+Activate with: source .venv/bin/activate
+
+➜  RUST-PYTHON-interoperability git:(master) ✗ source .venv/bin/activate
+(RUST-PYTHON-interoperability) ➜  RUST-PYTHON-interoperability git:(master) ✗ python --version
+Python 3.14.0
+</code></pre>
+
+<p>So at this point I have:</p>
+<ul>
+<li>A project directory <code>RUST-PYTHON-interoperability</code></li>
+<li>A <code>.python-version</code> file pinned to 3.14</li>
+<li>A virtualenv in <code>.venv</code> activated with Python 3.14</li>
+</ul>
+<p>Inside that project I have the Rust crate <code>my_rust_module/</code> with the code above.</p>
+<hr />
+<h2>The important bit: using <code>maturin</code> (not plain <code>cargo build</code>)</h2>
+<p>This is the part that tripped me up the most.</p>
+<p>If you run <code>cargo build</code> directly on this crate, you’ll hit linker errors on macOS (things like <code>_PyBool_Type</code> undefined). That’s because <code>cargo</code> alone doesn’t know which Python to link against, and how.</p>
+<p>For a <strong>pyo3-based Python extension module</strong>, the trick is:</p>
+<blockquote>
+<p>Use <strong>maturin</strong> to drive the build, not bare <code>cargo build</code>.</p>
+</blockquote>
+<p>So from inside the Rust crate directory:</p>
+<pre class="codehilite"><code class="language-bash">cd my_rust_module
+</code></pre>
+
+<p>I ran:</p>
+<pre class="codehilite"><code class="language-bash">(RUST-PYTHON-interoperability) ➜  my_rust_module git:(master) ✗ maturin develop
+  Downloaded portable-atomic v1.11.1
+  Downloaded 1 crate (181.2KiB) in 0.40s
+🔗 Found pyo3 bindings
+🐍 Found CPython 3.14 at /Users/tomaz/razvoj/PYTHON_PROJECTS/RUST-PYTHON-interoperability/.venv/bin/python
+   Compiling pyo3-build-config v0.27.1
+   Compiling pyo3-macros-backend v0.27.1
+   Compiling pyo3-ffi v0.27.1
+   Compiling pyo3 v0.27.1
+   Compiling pyo3-macros v0.27.1
+   Compiling my_rust_module v0.1.0 (/Users/tomaz/razvoj/PYTHON_PROJECTS/RUST-PYTHON-interoperability/my_rust_module)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.00s
+📦 Built wheel for CPython 3.14 to /var/folders/3r/7tps3c8n6yzgvk7vwrvzsl_r0000gn/T/.tmpCGpPKx/my_rust_module-0.1.0-cp314-cp314-macosx_11_0_arm64.whl
+✏️ Setting installed package as editable
+🛠 Installed my_rust_module-0.1.0
+</code></pre>
+
+<p>A few things are happening here:</p>
+<ul>
+<li><code>maturin</code> detects pyo3 and the active Python interpreter in my <code>.venv</code>.</li>
+<li>It builds a proper wheel for that Python version and platform.</li>
+<li>It installs it <strong>editable</strong> into the current environment, so I can immediately import it from Python.</li>
+</ul>
+<p>This completely sidesteps the linker errors I was getting with <code>cargo build</code> alone.</p>
+<hr />
+<h2>Testing the Rust module from Python</h2>
+<p>Back in the project root (<code>RUST-PYTHON-interoperability</code>), I created a <code>main.py</code>:</p>
+<pre class="codehilite"><code class="language-python"># main.py
+import my_rust_module
+
+def main():
+    value = 21
+    result = my_rust_module.double_in_rust(value)
+    print(f&quot;Rust async_double({value}) = {result}&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+
+<p>And then ran it:</p>
+<pre class="codehilite"><code class="language-bash">(RUST-PYTHON-interoperability) ➜  my_rust_module git:(master) ✗ nano ../main.py 
+(RUST-PYTHON-interoperability) ➜  my_rust_module git:(master) ✗ cd ..
+(RUST-PYTHON-interoperability) ➜  RUST-PYTHON-interoperability git:(master) ✗ python main.py 
+Rust async_double(21) = 42
+</code></pre>
+
+<p>That’s the whole round-trip:</p>
+<ul>
+<li>Rust async code with Tokio  </li>
+<li>Exposed to Python via pyo3  </li>
+<li>Built and installed with maturin  </li>
+<li>Imported and used from plain Python</li>
+</ul>
+<p>No Flask yet, no GAE/Lambda yet — just the minimal building block working.</p>
+<hr />
+<h2>Where this fits into Flask / GAE / Lambda</h2>
+<p>Now that the minimal Rust module works, wiring it into a Flask app is almost boring:</p>
+<pre class="codehilite"><code class="language-python">from flask import Flask, jsonify
+import my_rust_module
+
+app = Flask(__name__)
+
+@app.get(&quot;/calc/&lt;int:n&gt;&quot;)
+def calc(n: int):
+    result = my_rust_module.double_in_rust(n)
+    return jsonify({&quot;input&quot;: n, &quot;output&quot;: result})
+</code></pre>
+
+<p>In GAE or Lambda, the main extra work is just:</p>
+<ul>
+<li>Building the wheel for the <strong>correct platform</strong> (Linux, correct Python version).</li>
+<li>Shipping that wheel with your deployment (or as a layer in Lambda).</li>
+</ul>
+<p>But the core idea stays the same: Python is the web layer, Rust is the fast/async logic behind a neat function call.</p>
+<hr />
+<h2>Why I like this setup</h2>
+<p>✔ I keep Flask + Python for the web layer<br />
+✔ I move heavy async logic to Rust without rewriting the whole service<br />
+✔ I can scale parts independently later if I want a microservice instead<br />
+✔ And with <code>maturin</code>, the dev story is actually pretty smooth</p>
+<p>If you’re reading this because you’re thinking <em>“could I mix Rust and Python like this?”</em> — then yes, you probably can.</p>
+<p>And honestly, it feels pretty great.</p>
+<p>—Tomaz</p>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <a href="/blog" class="text-blue-600 hover:underline">← Back to Blog</a>
+            </div>
+        </div>
+    </article>
+
+    <footer class="py-8 border-t mt-16">
+        <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
+            <div class="text-sm text-gray-600 mb-4 md:mb-0">
+                <span class="font-mono font-bold">84-CS</span> | Software Development & Infrastructure
+            </div>
+            <div class="text-sm text-gray-600">
+                &copy; 2025 84-CS. All rights reserved.
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
