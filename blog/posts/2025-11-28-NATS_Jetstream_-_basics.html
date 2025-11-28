@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NATS Jetstream – My Notes | 84-CS Blog</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .prose { max-width: 65ch; }
+        .prose h1 { font-family: 'JetBrains Mono', monospace; font-size: 2.25rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; }
+        .prose h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.875rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; }
+        .prose h3 { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        .prose p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .prose pre { background-color: #1f2937; color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1rem; }
+        .prose code { background-color: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .prose pre code { background-color: transparent; padding: 0; }
+        .prose ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .prose ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .prose li { margin-bottom: 0.5rem; }
+        .prose a { color: #3b82f6; text-decoration: underline; }
+        .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; color: #6b7280; margin-bottom: 1rem; }
+    </style>
+</head>
+<body class="bg-white">
+    <header class="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100">
+        <div class="container mx-auto px-4 py-6 flex justify-between items-center">
+            <a href="/" class="text-xl font-mono font-bold">84-CS</a>
+            <nav>
+                <ul class="flex space-x-8">
+                    <li><a href="/" class="text-gray-600 hover:text-gray-900">Home</a></li>
+                    <li><a href="/blog" class="text-blue-600 font-semibold">Blog</a></li>
+                    <li><a href="/#contact" class="text-gray-600 hover:text-gray-900">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="h-20"></div>
+
+    <article class="container mx-auto px-4 py-12">
+        <div class="max-w-4xl mx-auto">
+            <div class="mb-8">
+                <a href="/blog" class="text-blue-600 hover:underline text-sm">← Back to Blog</a>
+            </div>
+
+            <h1 class="font-mono text-4xl font-bold mb-4">NATS Jetstream – My Notes</h1>
+            <div class="text-gray-500 mb-6">2025-11-28</div>
+
+            <div class="flex gap-2 mb-8">
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">NATS</span>
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">Jetstream</span>
+                
+                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">command line</span>
+                
+            </div>
+
+            <div class="prose">
+                <h1>My notes on NATS + JetStream (in plain, simple language)</h1>
+<blockquote>
+<p>Purpose: A place where I collect what I learned while experimenting with NATS, JetStream, streams &amp; consumers.<br />
+This is NOT an official guide — just my personal notes so I remember how things work.</p>
+</blockquote>
+<hr />
+<p>I had a need at work to setup NATS with Jetstream to support some services internally. <br />
+I worked a lot with Apache Kafka an Rabbitmq in the past, and setup NATS (streaming - not Jetstream) only once years back. So I had to "re-learn" some of the terminology. ;) </p>
+<h2>🧠 What finally clicked for me</h2>
+<p>NATS alone is super fast, but messages disappear if no one is listening.<br />
+JetStream is the part that <strong>stores messages</strong>, so even if my subscriber is offline, I can come back later and still read them.</p>
+<p>So I now think of it like this:</p>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Core NATS</strong></td>
+<td>Pub/sub — fast, but no history, no replay.</td>
+</tr>
+<tr>
+<td><strong>JetStream</strong></td>
+<td>Message storage + replay + durable consumption.</td>
+</tr>
+</tbody>
+</table>
+<p>When I understood that, everything else made sense.</p>
+<hr />
+<h2>Terminology that confused me at first</h2>
+<h3>Subject</h3>
+<p>This is basically a routing address for messages.<br />
+Example I used:</p>
+<pre class="codehilite"><code>tomaz.test.debug
+</code></pre>
+
+<p>If I publish and someone is subscribed at that moment → they get the message.<br />
+If not → message is gone. (Unless it's a JetStream message.)</p>
+<hr />
+<h3>Stream</h3>
+<p>This is where JetStream <strong>stores</strong> messages.</p>
+<p>A stream has:<br />
+- a name (mine was <code>adminko-stream</code>)<br />
+- one or more subjects it listens to<br />
+- max retention rules if you define them</p>
+<p>So if I publish messages <em>as JetStream messages</em>, they end up inside the stream.</p>
+<hr />
+<h3>Consumers</h3>
+<p>This one took me a while to get.</p>
+<p>A consumer decides how messages are delivered to me.</p>
+<p>There are two types that matter:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>What it means in practice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ephemeral</strong></td>
+<td>Temporary. If subscriber stops → JetStream forgets progress.</td>
+</tr>
+<tr>
+<td><strong>Durable</strong></td>
+<td>Saved position. If I stop and return later → I continue where I left off.</td>
+</tr>
+</tbody>
+</table>
+<p>Durable consumers are how you get <strong>"only messages I missed"</strong>, not everything.</p>
+<hr />
+<h3>JetStream Domain</h3>
+<p>In my setup, JetStream printed:</p>
+<pre class="codehilite"><code>Domain: &quot;mynats&quot;
+</code></pre>
+
+<p>This is just the JetStream cluster name.<br />
+If you only have one — it’s mostly just informational.</p>
+<hr />
+<h2>Creating things — the basic order that works for me</h2>
+<h3>1) Create a JetStream stream</h3>
+<pre class="codehilite"><code>nats stream add adminko-stream   --subjects &quot;tomaz.test.debug&quot;   --storage file   --retention limits   --max-msgs=-1   --max-bytes=-1   --max-age=0
+</code></pre>
+
+<p>This tells JetStream:</p>
+<blockquote>
+<p>Store everything published to <code>tomaz.test.debug</code>.</p>
+</blockquote>
+<hr />
+<h3>2) Publish messages normally (no persistence)</h3>
+<pre class="codehilite"><code>nats pub tomaz.test.debug &quot;hello&quot;
+</code></pre>
+
+<p>If subscriber is offline → message is gone.</p>
+<hr />
+<h3>3) Publish <strong>persisted messages</strong> (JetStream)</h3>
+<pre class="codehilite"><code>nats pub tomaz.test.debug &quot;Hello from Tomaz MAC 19&quot; -J
+</code></pre>
+
+<p>When this works, I see something like:</p>
+<pre class="codehilite"><code>Stored in Stream: adminko-stream Sequence: 13 Domain: &quot;mynats&quot;
+</code></pre>
+
+<p>Now the message is saved.<br />
+Now history exists.</p>
+<hr />
+<h3>4) Subscribe in different ways</h3>
+<h4>Core subscription (no history)</h4>
+<pre class="codehilite"><code>nats sub tomaz.test.debug
+</code></pre>
+
+<p>Only sees messages while running.</p>
+<h4>Get <strong>everything</strong> stored</h4>
+<pre class="codehilite"><code>nats sub tomaz.test.debug --all
+</code></pre>
+
+<p>→ This replays entire stream every time<br />
+→ Good for testing, not daily use</p>
+<h4>The important one: durable consumer</h4>
+<p>First create it:</p>
+<pre class="codehilite"><code>nats consumer add adminko-stream test-adminko-consumer   --filter tomaz.test.debug   --ack explicit   --deliver all
+</code></pre>
+
+<p>Then subscribe with resume support:</p>
+<pre class="codehilite"><code>nats sub tomaz.test.debug --durable test-adminko-consumer --ack
+</code></pre>
+
+<h3>What happens now</h3>
+<ol>
+<li>I start subscriber → I get messages</li>
+<li>I stop subscriber</li>
+<li>I publish N more messages</li>
+<li>I start subscriber again with same durable name</li>
+<li>I only get messages published while I was away</li>
+</ol>
+<p>This was the “aha moment” for me.</p>
+<hr />
+<h2>Example from my real test</h2>
+<pre class="codehilite"><code>Stored in Stream: adminko-stream Sequence: 13 Domain: &quot;mynats&quot;
+Stored in Stream: adminko-stream Sequence: 14 Domain: &quot;mynats&quot;
+Stored in Stream: adminko-stream Sequence: 15 Domain: &quot;mynats&quot;
+Stored in Stream: adminko-stream Sequence: 16 Domain: &quot;mynats&quot;
+</code></pre>
+
+<p>Later when I came back:</p>
+<pre class="codehilite"><code>nats sub tomaz.test.debug --durable test-adminko-consumer --ack
+
+[#13] ... Hello from Tomaz MAC 19
+[#14] ... Hello from Tomaz MAC 20
+[#15] ... Hello from Tomaz MAC 21
+[#16] ... Hello from Tomaz MAC 22
+</code></pre>
+
+<p>Only the gap!<br />
+Not everything again — finally the behavior I expected.</p>
+<hr />
+<h2>Final cheat sheet (for future me)</h2>
+<pre class="codehilite"><code># Publish volatile message
+nats pub subject &quot;msg&quot;
+
+# Publish stored message
+nats pub subject &quot;msg&quot; -J
+
+# Create stream
+nats stream add NAME --subjects &quot;subj&quot;
+
+# Create durable consumer
+nats consumer add STREAM durable-name --filter subj --ack explicit
+
+# Subscribe with resume
+nats sub subj --durable durable-name --ack
+</code></pre>
+
+<p>If I forget this again, hopefully I’ll find this file before I waste another two hours 😁<br />
+Feel free to use this if it helps you too.</p>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <a href="/blog" class="text-blue-600 hover:underline">← Back to Blog</a>
+            </div>
+        </div>
+    </article>
+
+    <footer class="py-8 border-t mt-16">
+        <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
+            <div class="text-sm text-gray-600 mb-4 md:mb-0">
+                <span class="font-mono font-bold">84-CS</span> | Software Development & Infrastructure
+            </div>
+            <div class="text-sm text-gray-600">
+                &copy; 2025 84-CS. All rights reserved.
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
